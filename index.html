@@ -545,6 +545,7 @@ async function vvWorkspace(action,values={}){
 }
 let vvManagerData={products:[],quotes:[]};
 let vvPermissions={},vvManagerEditing=null,vvManagerItems=[],vvManagerTab='dashboard';
+const vvManagerMoney=n=>(Number(n)||0).toLocaleString('uk-UA',{minimumFractionDigits:2,maximumFractionDigits:2})+' ₴';
 const vvEscape=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function vvManagerGo(tab){if(!['dashboard','products','services','stock','quotes','history'].includes(tab))return;vvCloseMenu();vvManagerTab=tab;vvManagerScreen(vvManagerData)}
 function vvManagerScreen(payload){
