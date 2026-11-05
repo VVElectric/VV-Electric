@@ -1,5 +1,5 @@
-// VV Electric PWA v61. Network-first for app pages; no Supabase/API caching.
-const CACHE = 'vv-electric-static-v61';
+// VV Electric PWA v62. Network-first for app pages; no Supabase/API caching.
+const CACHE = 'vv-electric-static-v62';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './vv-electric-icon-192.png', './vv-electric-icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

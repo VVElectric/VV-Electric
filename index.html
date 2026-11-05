@@ -505,7 +505,12 @@ async function vvSaveQuotePDF(source,filename){
   setTimeout(()=>URL.revokeObjectURL(url),60000);
   notice.textContent='PDF створено. Перевір «Файли» → «Завантаження».';
   await new Promise(r=>setTimeout(r,2200));
- }catch(e){alert('Не вдалося створити PDF: '+e.message+'\nПотрібне інтернет-з’єднання.');}
+ }catch(e){
+  // External PDF libraries are unavailable: offer a browser-native print preview.
+  notice.remove();
+  alert('PDF-бібліотека недоступна. Відкриємо версію для друку: у Safari вибери «Поділитися» → «Друк» або «Зберегти у Файли».');
+  vvIOSPrintPreview(source);
+ }
  finally{if(stage)stage.remove();notice.remove();vvPdfBusy=false;}
 }
 function vvIsIOSDevice(){
