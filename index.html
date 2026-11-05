@@ -433,7 +433,25 @@ db.quotes=db.quotes.filter(x=>x.id!==id);db.nextQuote=nextQuoteNumber();save();r
 function changeQuoteDeposit(id){let q=db.quotes.find(q=>q.id===id);if(!q)return;let total=q.items.reduce((s,x)=>s+x.price*x.qty,0);let raw=prompt('Завдаток від клієнта у гривнях (0–'+total.toFixed(2)+'):',String(Number(q.deposit)||0));if(raw===null)return;let amount=Number(raw.replace(',','.'));if(!Number.isFinite(amount)||amount<0||amount>total)return alert('Невірна сума завдатку');q.deposit=amount;save();render();viewQuote(id)}
 function conduct(id){let q=db.quotes.find(q=>q.id===id);if(!q||q.status!=='Чернетка')return;let need={};for(let x of q.items)if(x.type==='Товар')need[x.productId]=(need[x.productId]||0)+x.qty;for(let [id,qty] of Object.entries(need)){if(!get(id))return alert('Товар не знайдено: '+id)}if(!confirm('Провести КП '+quoteNumber(q.id)+' та списати товари зі складу? Якщо товару бракує, залишок стане від’ємним.'))return;for(let [id,qty] of Object.entries(need)){let p=get(id);issueStock(p,qty,'Продаж КП '+quoteNumber(q.id));db.moves.unshift({date:stamp(),name:p.name,delta:-qty,note:'Продаж КП '+quoteNumber(q.id)})}syncStocks();q.status='Проведено';save();render()}
 
+function vvIOSPrintPreview(source){
+ const win=window.open('','_blank');
+ if(!win){alert('Safari заблокував вікно друку. Дозвольте спливаючі вікна для VV Electric.');return}
+ const node=source.cloneNode(true);
+ node.querySelectorAll('button,.no-print,.actions').forEach(e=>e.remove());
+ node.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));
+ const styles=Array.from(document.querySelectorAll('style')).map(x=>x.outerHTML).join('');
+ const html='<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+styles+`<style>
+ @page{size:A4 portrait;margin:7mm}html,body{background:#fff!important;color:#111!important;margin:0!important;padding:0!important}
+ body{display:block!important;overflow:auto!important}#vv-ios-print{display:block!important;position:static!important;background:#fff!important;color:#111!important;width:196mm!important;max-width:100%!important;margin:auto!important;box-shadow:none!important;border:0!important;visibility:visible!important}
+ #vv-ios-print *{visibility:visible!important}#vv-ios-print table{width:100%!important}#vv-ios-print td,#vv-ios-print th{color:#111!important}
+ .vv-ios-toolbar{position:sticky;top:0;z-index:100;background:#1c1c1c;color:white;padding:12px;display:flex;gap:12px;justify-content:center}
+ .vv-ios-toolbar button{display:inline-block!important;background:#f6c95b!important;color:#111!important;border:0;border-radius:9px;padding:12px 18px;font-weight:bold}
+ @media print{.vv-ios-toolbar{display:none!important}#vv-ios-print{width:196mm!important;zoom:var(--vv-page-zoom,1)!important}body{background:#fff!important} }
+ </style></head><body><div class="vv-ios-toolbar"><button onclick="window.print()">Друк / PDF</button><button onclick="window.close()">Закрити</button></div><div id="vv-ios-print">${node.innerHTML}</div></body></html>`;
+ win.document.open();win.document.write(html);win.document.close();
+}
 function vvPrintOnePage(source){
+ if(/iPad|iPhone|iPod/.test(navigator.userAgent)){vvIOSPrintPreview(source);return}
  const old=document.getElementById('vv-print-only');if(old)old.remove();
  const clone=source.cloneNode(true);clone.id='vv-print-only';clone.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
  document.body.appendChild(clone);
