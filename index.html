@@ -864,4 +864,41 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 document.addEventListener('gesturestart', function(e){e.preventDefault()}, {passive:false});
 document.addEventListener('gesturechange', function(e){e.preventDefault()}, {passive:false});
 document.addEventListener('gestureend', function(e){e.preventDefault()}, {passive:false});
+</script><style>
+#vv-app-update{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:9000;border:1px solid #b88627;background:#232323;color:#ffe09a;border-radius:999px;padding:10px 15px;font:600 13px system-ui,sans-serif;box-shadow:0 3px 14px #0006;cursor:pointer;max-width:50vw}
+#vv-app-update:disabled{opacity:.7;cursor:wait}
+body.vv-locked #vv-app-update{display:none}
+</style>
+<button id="vv-app-update" type="button" onclick="vvAppUpdate()" title="Перевірити оновлення VV Electric">↻ Оновити</button>
+<script>
+// VV Electric UI release 61. Fetch the deployed page bypassing HTTP cache before reload.
+async function vvAppUpdate(){
+ const btn=document.getElementById('vv-app-update');
+ if(!navigator.onLine){alert('Для оновлення потрібен інтернет.');return;}
+ if((typeof vvDirty!=='undefined'&&vvDirty)||(typeof vvSaving!=='undefined'&&vvSaving)||(typeof vvBlocked!=='undefined'&&vvBlocked)){
+   alert('Є незбережені зміни або триває збереження. Завершіть його перед оновленням.');return;
+ }
+ btn.disabled=true;btn.textContent='Перевіряю…';
+ try{
+   if('serviceWorker' in navigator){
+     const reg=await navigator.serviceWorker.getRegistration();
+     if(reg)await reg.update();
+   }
+   const response=await fetch('./index.html?vv_update_check='+Date.now(),{cache:'no-store'});
+   if(!response.ok)throw new Error('HTTP '+response.status);
+   const html=await response.text();
+   const match=html.match(/VV Electric UI release (\d+)/);
+   const version=match?Number(match[1]):null;
+   if(version===61){
+     btn.textContent='✓ Актуальна';
+     setTimeout(()=>{btn.textContent='↻ Оновити';btn.disabled=false},1700);
+     return;
+   }
+   if(confirm('Доступна інша версія сайту. Перезавантажити застосунок?')){
+     location.replace(location.pathname+'?vv_reload='+Date.now());
+     return;
+   }
+ }catch(err){alert('Не вдалося перевірити оновлення: '+err.message)}
+ btn.textContent='↻ Оновити';btn.disabled=false;
+}
 </script></body></html>
