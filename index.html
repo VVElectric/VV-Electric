@@ -437,7 +437,7 @@ function issueStock(p,qty,note){let remaining=qty;for(let b of db.batches.filter
 function receiveStock(p,qty,cost,currency,note){let remaining=qty;for(let b of db.batches.filter(b=>b.productId===p.id&&b.qty<0).sort((a,b)=>a.id-b.id)){let settle=Math.min(remaining,-b.qty);b.qty=Math.round((b.qty+settle)*100000)/100000;remaining=Math.round((remaining-settle)*100000)/100000;if(remaining<=0)break}if(remaining>0)db.batches.push({id:db.nextBatch++,productId:p.id,qty:remaining,cost,currency,rate:db.rate,date:stamp(),note});p.cost=cost;p.currency=currency}
 
 let stockSelection={};
-function stock(){let goods=db.products.filter(p=>p.type==='Товар').sort(alpha);return `<div class="panel"><div class="toolbar"><h2>Оприходування та списання</h2><button class="primary" onclick="openStockPicker()">＋ Вибрати матеріали</button></div><p class="note">Додавай одразу кілька матеріалів через пошук. Кількість вказується в одиницях товару: кабель — м, панелі — шт. Ціну закупівлі можна змінити окремо для кожного рядка.</p><div class="editgrid"><div class="field"><label>Операція</label><select id="movetype" onchange="stockTypeChanged()"><option value="in">Прихід (+)</option><option value="out">Списання (−)</option><option value="set">Встановити початковий залишок</option></select></div><div class="field"><label>Примітка / документ</label><input id="movenote" placeholder="Накладна, постачальник..."></div></div><div id="stockSelectedRows" style="margin-top:16px"></div><div class="actions" style="margin-top:14px"><button onclick="openStockPicker()">＋ Додати матеріали</button><button class="primary" onclick="commitStockSelection()">Зберегти операцію</button></div></div><div class="panel"><h2>Залишки за партіями</h2><p class="note">Партії з різними закупівельними цінами обліковуються окремо. Від’ємні залишки показані червоним і автоматично погашаються новим приходом. Кабель зберігається в метрах, а не штуках.</p><div class="tablewrap"><table><tr><th>Товар</th><th>Партія</th><th>Кількість</th><th>Од.</th><th>Ціна закупівлі</th><th>Собівартість, грн</th><th>Вартість партії</th></tr>${db.batches.filter(b=>b.qty!==0).map(b=>{let p=get(b.productId);return `<tr><td class="name">${esc(p?.name||'Видалений товар')}</td><td>№${b.id} · ${esc(b.date)}</td><td style="${b.qty<0?'color:#f87171;font-weight:700':''}">${b.qty}</td><td>${esc(p?.unit||'')}</td><td>${b.cost} ${b.currency}</td><td>${money(batchUAH(b))}</td><td>${money(batchUAH(b)*b.qty)}</td></tr>`}).join('')}</table></div><p><strong>Разом на складі: ${money(db.batches.reduce((s,b)=>s+batchUAH(b)*Math.max(0,b.qty),0))}</strong></p></div>`}
+function stock(){let goods=db.products.filter(p=>p.type==='Товар').sort(alpha);return `<div class="panel"><div class="toolbar"><h2>Оприходування та списання</h2><button class="primary" onclick="openStockPicker()">＋ Вибрати матеріали</button><button onclick="vvInvoiceOpen()">📄 Додати накладну</button></div><p class="note">Додавай одразу кілька матеріалів через пошук. Кількість вказується в одиницях товару: кабель — м, панелі — шт. Ціну закупівлі можна змінити окремо для кожного рядка.</p><div class="editgrid"><div class="field"><label>Операція</label><select id="movetype" onchange="stockTypeChanged()"><option value="in">Прихід (+)</option><option value="out">Списання (−)</option><option value="set">Встановити початковий залишок</option></select></div><div class="field"><label>Примітка / документ</label><input id="movenote" placeholder="Накладна, постачальник..."></div></div><div id="stockSelectedRows" style="margin-top:16px"></div><div class="actions" style="margin-top:14px"><button onclick="openStockPicker()">＋ Додати матеріали</button><button class="primary" onclick="commitStockSelection()">Зберегти операцію</button></div></div><div class="panel"><h2>Залишки за партіями</h2><p class="note">Партії з різними закупівельними цінами обліковуються окремо. Від’ємні залишки показані червоним і автоматично погашаються новим приходом. Кабель зберігається в метрах, а не штуках.</p><div class="tablewrap"><table><tr><th>Товар</th><th>Партія</th><th>Кількість</th><th>Од.</th><th>Ціна закупівлі</th><th>Собівартість, грн</th><th>Вартість партії</th></tr>${db.batches.filter(b=>b.qty!==0).map(b=>{let p=get(b.productId);return `<tr><td class="name">${esc(p?.name||'Видалений товар')}</td><td>№${b.id} · ${esc(b.date)}</td><td style="${b.qty<0?'color:#f87171;font-weight:700':''}">${b.qty}</td><td>${esc(p?.unit||'')}</td><td>${b.cost} ${b.currency}</td><td>${money(batchUAH(b))}</td><td>${money(batchUAH(b)*b.qty)}</td></tr>`}).join('')}</table></div><p><strong>Разом на складі: ${money(db.batches.reduce((s,b)=>s+batchUAH(b)*Math.max(0,b.qty),0))}</strong></p></div>`}
 function stockTypeChanged(){renderStockSelected()}
 function openStockPicker(){let box=document.getElementById('stockpickerroot');if(!box){box=document.createElement('div');box.id='stockpickerroot';document.body.appendChild(box)}box.innerHTML=`<div class="modalshade" onclick="if(event.target===this)closeStockPicker()"><div class="modal" style="width:min(820px,100%)"><h2>Вибрати матеріали</h2><div class="field"><label>Пошук за назвою</label><input id="stockPickerSearch" type="search" placeholder="Наприклад: кабель, акумулятор..." oninput="renderStockPicker()"></div><div class="picker-list" id="stockPickerList"></div><div class="toolbar"><span id="stockPickerCount"></span><div class="actions"><button onclick="closeStockPicker()">Закрити</button><button class="primary" onclick="closeStockPicker();renderStockSelected()">Додати вибрані</button></div></div></div></div>`;renderStockPicker();document.getElementById('stockPickerSearch').focus()}
 function closeStockPicker(){let el=document.getElementById('stockpickerroot');if(el)el.remove()}
@@ -1254,7 +1254,65 @@ body.vv-locked #vv-roster-button,body.vv-locked #vv-roster-panel{display:none!im
 <section id="vv-roster-panel" hidden aria-label="Список менеджерів"><h3>Менеджери</h3><div id="vv-roster-total">Завантаження…</div><div id="vv-roster-list"></div><button type="button" onclick="vvRefreshRoster(false)" style="margin-top:12px">↻ Оновити список</button></section>
 <button id="vv-app-update" type="button" onclick="vvAppUpdate()" title="Перевірити оновлення VV Electric">↻ Оновити</button>
 <script>
-// VV Electric UI release 74. Fetch the deployed page bypassing HTTP cache before reload.
+
+// Invoice import: all parsed rows require explicit human review before stock receipt.
+let vvInvoiceRows=[],vvInvoiceText='',vvInvoiceFilename='';
+function vvInvoiceOpen(){
+ let root=document.getElementById('vvInvoiceRoot');if(!root){root=document.createElement('div');root.id='vvInvoiceRoot';document.body.appendChild(root)}
+ root.innerHTML=`<div class="modalshade" onclick="if(event.target===this)vvInvoiceClose()"><div class="modal" style="width:min(960px,100%);max-height:90vh;overflow:auto"><h2>Імпорт накладної</h2><p class="note">Вибери PDF, фото або текстовий файл. Розпізнавання фото потребує інтернету для першого завантаження модуля. Перевір кожен рядок перед оприбуткуванням — автоматичне розпізнавання може помилятися.</p><input type="file" id="vvInvoiceFile" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,application/pdf,image/*,text/plain,text/csv" onchange="vvInvoiceLoad(this.files[0])"><p id="vvInvoiceStatus" class="note">Файл ще не вибрано</p><div class="field"><label>Текст накладної (можна вставити вручну або виправити після розпізнавання)</label><textarea id="vvInvoiceText" rows="5" style="width:100%" placeholder="Назва | Кількість | Ціна за одиницю"></textarea></div><div class="actions"><button onclick="vvInvoiceParseText()">Розібрати текст</button><button onclick="vvInvoiceAddRow()">＋ Рядок вручну</button></div><div id="vvInvoiceReview"></div><div class="actions"><button class="primary" onclick="vvInvoiceApply()">Перенести в оприбуткування</button><button onclick="vvInvoiceClose()">Скасувати</button></div></div></div>`;
+ vvInvoiceRows=[];vvInvoiceText='';vvInvoiceFilename='';
+}
+function vvInvoiceClose(){document.getElementById('vvInvoiceRoot')?.remove()}
+function vvInvoiceStatus(t){let x=document.getElementById('vvInvoiceStatus');if(x)x.textContent=t}
+async function vvInvoiceScript(url,test){if(test())return;await new Promise((resolve,reject)=>{let s=document.createElement('script');s.src=url;s.onload=resolve;s.onerror=()=>reject(Error('Не вдалося завантажити модуль розпізнавання. Перевір інтернет.'));document.head.appendChild(s)})}
+async function vvInvoiceOCR(image){
+ await vvInvoiceScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',()=>!!window.Tesseract);
+ const worker=await Tesseract.createWorker('ukr+eng',1,{logger:m=>{if(m.status==='recognizing text')vvInvoiceStatus('Розпізнавання: '+Math.round(m.progress*100)+'%')}});
+ try{return (await worker.recognize(image)).data.text||''}finally{await worker.terminate()}
+}
+async function vvInvoiceLoad(file){if(!file)return;vvInvoiceFilename=file.name;vvInvoiceStatus('Читаю '+file.name+'…');try{
+ let text='';let ext=file.name.toLowerCase();
+ if(file.type.startsWith('image/')||/\.(jpg|jpeg|png|webp)$/.test(ext)){text=await vvInvoiceOCR(file)}
+ else if(file.type==='application/pdf'||ext.endsWith('.pdf')){
+ await vvInvoiceScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',()=>!!window.pdfjsLib);
+ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+ const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+ for(let i=1;i<=Math.min(pdf.numPages,12);i++){vvInvoiceStatus('PDF: сторінка '+i+' з '+pdf.numPages);let page=await pdf.getPage(i);let content=await page.getTextContent();let groups=[];for(let item of content.items){if(!item.str?.trim())continue;let y=Math.round(item.transform[5]/4)*4;let row=groups.find(g=>Math.abs(g.y-y)<=2);if(!row){row={y,items:[]};groups.push(row)}row.items.push({x:item.transform[4],s:item.str})}let pageText=groups.sort((a,b)=>b.y-a.y).map(g=>g.items.sort((a,b)=>a.x-b.x).map(v=>v.s).join(' | ')).join('\n');if(pageText.replace(/\s/g,'').length<25){let view=page.getViewport({scale:2});let c=document.createElement('canvas');c.width=view.width;c.height=view.height;await page.render({canvasContext:c.getContext('2d'),viewport:view}).promise;pageText=await vvInvoiceOCR(c)}text+=pageText+'\n'}
+ }else{text=await file.text()}
+ document.getElementById('vvInvoiceText').value=text;vvInvoiceStatus('Файл прочитано. Перевір розпізнаний текст та таблицю.');vvInvoiceParseText();
+ }catch(e){vvInvoiceStatus('Помилка: '+e.message+' Можна вставити текст накладної вручну.')}}
+function vvInvoiceNumber(s){s=String(s||'').replace(/\s/g,'').replace(/₴|грн\.?/gi,'').replace(/,/g,'.');if(!/^\d+(\.\d+)?$/.test(s))return NaN;return Number(s)}
+function vvInvoiceParseText(){let raw=document.getElementById('vvInvoiceText')?.value||'';let rows=[];
+ for(let line of raw.split(/\r?\n/)){
+ let parts=line.split(/\s*[|;\t]\s*/).map(x=>x.trim()).filter(Boolean);
+ // Prefer structured text: name | qty | unit price; accept leading line number and unit.
+ if(parts.length>=3){let nums=[];for(let i=0;i<parts.length;i++){let n=vvInvoiceNumber(parts[i]);if(Number.isFinite(n))nums.push({i,n})}
+ let name=parts.find((v,i)=>/[\p{L}]/u.test(v)&&!/^(шт\.?|м\.?|кг|грн|uah|usd|ціна|сума|кількість)$/i.test(v));
+ if(name&&nums.length>=2){let nameIndex=parts.indexOf(name),after=nums.filter(x=>x.i>nameIndex);let qty=after[0]?.n,price=after[1]?.n;if(qty>0&&Number.isFinite(price)&&price>=0&&qty<1e7){rows.push({name,qty,price,unit:/\bм\.?\b/i.test(parts.join(' '))?'м.':'шт.',productId:'',include:true});continue}}
+ }
+ // Common OCR lines: [number] name qty price total, with dot/comma decimals.
+ let m=line.trim().match(/^(?:\d+[.)]\s*)?(.{4,}?)\s+(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d{1,2})?)\s+(\d+(?:[.,]\d{1,2})?)\s*$/u);
+ if(m&&/[\p{L}]/u.test(m[1])){let qty=vvInvoiceNumber(m[2]),price=vvInvoiceNumber(m[3]),sum=vvInvoiceNumber(m[4]);if(qty>0&&price>=0&&Math.abs(qty*price-sum)<=Math.max(2,sum*.03))rows.push({name:m[1].trim(),qty,price,unit:'шт.',productId:'',include:true})}
+ }
+ vvInvoiceRows=rows;vvInvoiceRender();vvInvoiceStatus('Знайдено позицій: '+rows.length+'. Якщо дані неповні, додай або виправ рядки вручну.');
+}
+function vvInvoiceMatch(name){let norm=x=>String(x||'').toLocaleLowerCase('uk-UA').replace(/[^\p{L}\p{N}]+/gu,' ').trim();return db.products.find(p=>p.type==='Товар'&&norm(p.name)===norm(name))?.id||''}
+function vvInvoiceRender(){let box=document.getElementById('vvInvoiceReview');if(!box)return;let goods=db.products.filter(p=>p.type==='Товар').sort(alpha);
+ box.innerHTML=`<h3>Перевірка позицій (${vvInvoiceRows.length})</h3><div class="tablewrap"><table><thead><tr><th>✓</th><th>Назва</th><th>Кількість</th><th>Ціна за 1 шт./м, грн</th><th>Од.</th><th>Товар у каталозі</th><th></th></tr></thead><tbody>${vvInvoiceRows.map((r,i)=>`<tr><td><input type="checkbox" ${r.include?'checked':''} onchange="vvInvoiceEdit(${i},'include',this.checked)"></td><td><input style="min-width:180px" value="${esc(r.name)}" oninput="vvInvoiceEdit(${i},'name',this.value)"></td><td><input type="number" min="0" step="any" style="width:95px" value="${r.qty}" oninput="vvInvoiceEdit(${i},'qty',this.value)"></td><td><input type="number" min="0" step="any" style="width:110px" value="${r.price}" oninput="vvInvoiceEdit(${i},'price',this.value)"></td><td><select onchange="vvInvoiceEdit(${i},'unit',this.value)">${options(['шт.','м.','кг','компл.'],r.unit)}</select></td><td><select style="min-width:170px" onchange="vvInvoiceEdit(${i},'productId',this.value)"><option value="">＋ Створити новий товар</option>${goods.map(p=>`<option value="${p.id}" ${String(r.productId||vvInvoiceMatch(r.name))===String(p.id)?'selected':''}>${esc(p.name)}</option>`).join('')}</select></td><td><button onclick="vvInvoiceRemove(${i})">×</button></td></tr>`).join('')}</tbody></table></div><p class="note">Нові товари створяться лише після підтвердження оприбуткування. Ціни — за одиницю, у гривнях. Звір суми з накладною.</p>`;
+}
+function vvInvoiceEdit(i,k,v){if(!vvInvoiceRows[i])return;vvInvoiceRows[i][k]=k==='qty'||k==='price'?Number(v):v;if(k==='name')vvInvoiceRows[i].productId=''}
+function vvInvoiceRemove(i){vvInvoiceRows.splice(i,1);vvInvoiceRender()}
+function vvInvoiceAddRow(){vvInvoiceRows.push({name:'',qty:1,price:0,unit:'шт.',productId:'',include:true});vvInvoiceRender()}
+function vvInvoiceApply(){let chosen=vvInvoiceRows.filter(r=>r.include);if(!chosen.length)return vvAlert('Немає вибраних позицій');let prepared=[];
+ for(let r of chosen){let name=String(r.name||'').trim(),qty=Number(r.qty),price=Number(r.price);if(!name||!Number.isFinite(qty)||qty<=0||!Number.isFinite(price)||price<0)return vvAlert('Перевір назви, кількість і ціни');let id=Number(r.productId||vvInvoiceMatch(name));if(id&&!get(id))return vvAlert('Товар із каталогу не знайдено: '+name);prepared.push({name,qty,price,unit:r.unit||'шт.',id})}
+ // Preview only: no changes to db until user presses "Зберегти операцію".
+ let next=Math.max(0,...db.products.map(p=>Number(p.id)||0))+1;
+ for(let r of prepared){let p=r.id?get(r.id):null;if(!p){p={id:next++,name:r.name,cost:r.price,markup:markupForCategory('Інше','Товар'),currency:'UAH',type:'Товар',category:'Інше',unit:r.unit,stock:0};db.products.push(p)}if(!stockSelection[p.id])stockSelection[p.id]={qty:0,cost:r.price,currency:'UAH'};stockSelection[p.id].qty+=r.qty;stockSelection[p.id].cost=r.price}
+ // New catalog items are local until stock receipt is saved.
+ document.getElementById('movetype').value='in';document.getElementById('movenote').value=vvInvoiceFilename||'Імпорт накладної';vvInvoiceClose();renderStockSelected();vvAlert('Перенесено '+prepared.length+' позицій. Перевір таблицю та натисни «Зберегти операцію».');
+}
+
+// VV Electric UI release 75. Fetch the deployed page bypassing HTTP cache before reload.
 async function vvAppUpdate(){
  const btn=document.getElementById('vv-app-update');
  if(!navigator.onLine){alert('Для оновлення потрібен інтернет.');return;}
@@ -1291,7 +1349,7 @@ async function vvAppUpdate(){
 
 
 <script>
-const VV_RELEASE=73;
+const VV_RELEASE=75;
 let vvLastOfferedRelease=0;
 async function vvCheckNewRelease(){
  if(document.hidden||!navigator.onLine)return;
