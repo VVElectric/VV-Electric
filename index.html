@@ -688,64 +688,73 @@ function vvIsIOSDevice(){
 }
 function vvDesktopPrint(source){
  if(!source)return alert('Не знайдено комерційну пропозицію для друку.');
- // Open synchronously in the click handler to avoid popup blocking.
  const win=window.open('','_blank');
- if(!win){
-   alert('Браузер заблокував вікно друку. Дозволь спливаючі вікна для VV Electric.');
-   return;
- }
+ if(!win){alert('Дозволь спливаючі вікна для друку КП.');return;}
  const node=source.cloneNode(true);
  node.querySelectorAll('button,.no-print,.actions,.vv-ios-toolbar').forEach(el=>el.remove());
  node.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
- const styles=Array.from(document.querySelectorAll('style')).map(x=>x.outerHTML).join('');
- const markup=`<!doctype html><html lang="uk"><head><meta charset="utf-8">
- <title>VV Electric — друк КП</title>
- <meta name="viewport" content="width=device-width, initial-scale=1">
- ${styles}
+ // The print document is isolated: existing application print CSS must not override fitting.
+ const markup=`<!doctype html><html lang="uk"><head><meta charset="utf-8"><title>VV Electric — КП</title>
+ <meta name="viewport" content="width=device-width,initial-scale=1">
  <style>
- @page{size:A4 portrait;margin:10mm}
- html,body{background:#fff!important;color:#111!important;margin:0!important;padding:0!important;width:auto!important;min-width:0!important;overflow:visible!important}
- body{display:block!important}
- #vv-desktop-document{display:block!important;visibility:visible!important;position:static!important;width:100%!important;max-width:100%!important;margin:0!important;padding:0!important;background:#fff!important;color:#111!important;box-shadow:none!important;border:0!important}
- #vv-desktop-document *{visibility:visible!important}
- #vv-desktop-document table{width:100%!important;border-collapse:collapse!important;table-layout:auto!important}
- #vv-desktop-document th,#vv-desktop-document td{white-space:normal!important;overflow-wrap:anywhere!important}
- #vv-desktop-document .tablewrap{overflow:visible!important}
- #vv-desktop-document img{max-width:100%!important}
- #vv-desktop-document tr{break-inside:avoid;page-break-inside:avoid}
- .vv-desktop-controls{position:sticky;top:0;z-index:9999;background:#202020;padding:12px;display:flex;gap:12px;justify-content:center}
- .vv-desktop-controls button{padding:12px 22px;background:#f4cd68;color:#111;border:0;border-radius:8px;font-weight:700;cursor:pointer}
+ @page{size:A4 portrait;margin:7mm}
+ *{box-sizing:border-box}
+ html,body{margin:0!important;padding:0!important;background:white!important;color:#161616!important;font-family:Arial,Helvetica,sans-serif!important}
+ body{width:196mm!important;max-width:196mm!important;overflow:visible!important}
+ #vv-desktop-document{width:196mm!important;max-width:196mm!important;padding:0!important;margin:0!important;background:white!important;color:#161616!important;transform:none!important;transform-origin:top left!important;overflow:visible!important}
+ #vv-desktop-document .quote-letterhead{display:flex!important;align-items:center!important;gap:12px!important;border-bottom:2px solid #c39528!important;padding:0 0 8px!important;margin:0 0 8px!important}
+ #vv-desktop-document .quote-letterhead img{width:48px!important;height:48px!important;object-fit:contain!important}
+ #vv-desktop-document .quote-company{font-size:23px!important;font-weight:800!important}
+ #vv-desktop-document .quote-company span{color:#ad801a!important}
+ #vv-desktop-document h2{font-size:17px!important;margin:6px 0!important}
+ #vv-desktop-document p{font-size:11px!important;margin:4px 0!important;line-height:1.28!important}
+ #vv-desktop-document .right{text-align:right!important}
+ #vv-desktop-document .tablewrap{overflow:visible!important;width:100%!important}
+ #vv-desktop-document table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;font-size:10px!important;line-height:1.22!important}
+ #vv-desktop-document th,#vv-desktop-document td{padding:4px 5px!important;border-bottom:1px solid #ddd!important;white-space:normal!important;overflow-wrap:anywhere!important;vertical-align:middle!important;color:#161616!important}
+ #vv-desktop-document th:first-child,#vv-desktop-document td:first-child{width:53%!important}
+ #vv-desktop-document th:nth-child(2),#vv-desktop-document td:nth-child(2){width:14%!important}
+ #vv-desktop-document th:nth-child(3),#vv-desktop-document td:nth-child(3){width:16%!important}
+ #vv-desktop-document th:nth-child(4),#vv-desktop-document td:nth-child(4){width:17%!important}
+ #vv-desktop-document tr{break-inside:avoid!important;page-break-inside:avoid!important}
+ #vv-desktop-document .quote-total,#vv-desktop-document .vv-quote-totals{break-inside:avoid!important;page-break-inside:avoid!important}
+ .vv-desktop-controls{position:sticky;top:0;z-index:2;display:flex;justify-content:center;gap:10px;background:#222;padding:12px}
+ .vv-desktop-controls button{background:#f4c34d;color:#111;border:0;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer}
  @media print{
   .vv-desktop-controls{display:none!important}
-  #vv-desktop-document{zoom:var(--vv-print-fit,1)!important;transform:none!important}
+  html,body{width:196mm!important;max-width:196mm!important;height:auto!important}
+  #vv-desktop-document{zoom:var(--vv-fit,1)!important;break-inside:avoid!important;page-break-inside:avoid!important}
   body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
  }
- </style></head><body>
- <div class="vv-desktop-controls"><button onclick="window.print()">Друк / Зберегти PDF</button><button onclick="window.close()">Закрити</button></div>
+ </style></head><body><div class="vv-desktop-controls"><button onclick="window.print()">Друк / Зберегти PDF</button><button onclick="window.close()">Закрити</button></div>
  <div id="vv-desktop-document">${node.innerHTML}</div></body></html>`;
- win.document.open();
- win.document.write(markup);
- win.document.close();
- // Wait for images/fonts before triggering the native print dialog.
+ win.document.open();win.document.write(markup);win.document.close();
+ let printed=false;
  const trigger=async()=>{
-   try{
-     await win.document.fonts.ready;
-     await Promise.all(Array.from(win.document.images).map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;setTimeout(resolve,1500)})));
-   }catch(_){}
-   if(!win.closed){
-     const doc=win.document.getElementById('vv-desktop-document');
-     if(doc){
-       // A4 printable height at 96 CSS px/in with 10mm margins.
-       const available=1046;
-       const height=doc.scrollHeight;
-       const fit=Math.min(1,available/Math.max(1,height));
-       doc.style.setProperty('--vv-print-fit',String(Math.max(0.32,fit)));
-     }
-     win.focus();win.print();
-   }
+  if(printed||win.closed)return;printed=true;
+  try{
+   await win.document.fonts.ready;
+   await Promise.all(Array.from(win.document.images).map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;setTimeout(resolve,2000)})));
+  }catch(_){}
+  if(win.closed)return;
+  const doc=win.document.getElementById('vv-desktop-document');
+  if(doc){
+   // Measure the full content including totals, then apply zoom BEFORE opening print preview.
+   // 7mm top/bottom margins => 283mm printable height. Reserve 8mm for rounding.
+   const limit=275*96/25.4;
+   const height=Math.max(doc.scrollHeight,doc.getBoundingClientRect().height);
+   let fit=Math.min(1,limit/Math.max(1,height));
+   fit=Math.max(.18,fit*.965);
+   doc.style.setProperty('--vv-fit',String(fit));
+   doc.style.zoom=String(fit);
+   // Re-measure after layout and correct for wrapped lines / rounding.
+   const after=doc.getBoundingClientRect().height;
+   if(after>limit){fit*=limit/after*.97;doc.style.zoom=String(fit);doc.style.setProperty('--vv-fit',String(fit));}
+  }
+  win.focus();win.print();
  };
- win.addEventListener('load',()=>{trigger()},{once:true});
  if(win.document.readyState==='complete')trigger();
+ else win.addEventListener('load',trigger,{once:true});
 }
 function vvPrintQuoteByDevice(source,filename){
  if(vvIsIOSDevice())vvSaveQuotePDF(source,filename);
@@ -1337,7 +1346,7 @@ function vvInvoiceApply(){let chosen=vvInvoiceRows.filter(r=>r.include);if(!chos
  document.getElementById('movetype').value='in';document.getElementById('movenote').value=vvInvoiceFilename||'Імпорт накладної';vvInvoiceClose();renderStockSelected();vvAlert('Перенесено '+prepared.length+' позицій. Перевір таблицю та натисни «Зберегти операцію».');
 }
 
-// VV Electric UI release 78. Fetch the deployed page bypassing HTTP cache before reload.
+// VV Electric UI release 79. Fetch the deployed page bypassing HTTP cache before reload.
 async function vvAppUpdate(){
  const btn=document.getElementById('vv-app-update');
  if(!navigator.onLine){alert('Для оновлення потрібен інтернет.');return;}
@@ -1374,7 +1383,7 @@ async function vvAppUpdate(){
 
 
 <script>
-const VV_RELEASE=78;
+const VV_RELEASE=79;
 let vvLastOfferedRelease=0;
 async function vvCheckNewRelease(){
  if(document.hidden||!navigator.onLine)return;
