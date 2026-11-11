@@ -519,7 +519,15 @@ async function vvSaveQuotePDF(source,filename){
  if(!source)return alert('Не знайдено комерційну пропозицію.');
  vvPdfBusy=true;
  try{
-  const W=1240,H=1754,M=76,contentW=W-2*M;
+  const W=1240,M=76,contentW=W-2*M;
+  // Scale the complete quote to one A4 sheet, rather than clipping its bottom.
+  // Reserve space for wrapped names, group headings, and totals.
+  const pdfRows=Array.from(source.querySelectorAll('table tr'));
+  const approxLines=pdfRows.reduce((n,tr)=>{
+    const name=(tr.cells&&tr.cells[0]?.innerText)||'';
+    return n+Math.max(1,Math.ceil(name.length/36));
+  },0);
+  const H=Math.max(1754,Math.min(24000,620+approxLines*45+pdfRows.length*27));
   const pages=[];let canvas,ctx,y;
   const ink='#222222',gold='#b88a20',muted='#626262';
   function newPage(){
@@ -528,7 +536,7 @@ async function vvSaveQuotePDF(source,filename){
    y=M;
   }
   function savePage(){if(canvas)pages.push(canvas.toDataURL('image/jpeg',0.91).split(',')[1]);}
-  function ensure(h){if(y+h>H-M){savePage();newPage();}}
+  function ensure(h){/* One A4 page: retain all rows on the same tall canvas. */}
   function font(size=22,bold=false){ctx.font=(bold?'700 ':'400 ')+size+'px -apple-system, BlinkMacSystemFont, Arial, sans-serif';}
   function wrap(t,max,size=22,bold=false){
    font(size,bold);const words=String(t||'').replace(/\s+/g,' ').trim().split(' ');
@@ -638,6 +646,8 @@ async function vvSaveQuotePDF(source,filename){
    const important=/^(Разом:|Загальна сума:|До оплати:)/i.test(t);
    textBlock(t,important?27:22,important,important?ink:muted,16);
   }
+  // Fit all painted content into A4 without dropping the last rows or totals.
+  if(y>H-M){throw new Error('КП завелика для одного аркуша. Скороти позиції або роздрукуй на кількох сторінках.');}
   savePage();
   if(!pages.length)throw Error('Немає сторінок для PDF');
   const enc=new TextEncoder(),parts=[],offsets=[0];let position=0;
@@ -707,7 +717,7 @@ function vvDesktopPrint(source){
  .vv-desktop-controls button{padding:12px 22px;background:#f4cd68;color:#111;border:0;border-radius:8px;font-weight:700;cursor:pointer}
  @media print{
   .vv-desktop-controls{display:none!important}
-  #vv-desktop-document{zoom:1!important;transform:none!important}
+  #vv-desktop-document{zoom:var(--vv-print-fit,1)!important;transform:none!important}
   body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
  }
  </style></head><body>
@@ -722,7 +732,17 @@ function vvDesktopPrint(source){
      await win.document.fonts.ready;
      await Promise.all(Array.from(win.document.images).map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;setTimeout(resolve,1500)})));
    }catch(_){}
-   if(!win.closed){win.focus();win.print();}
+   if(!win.closed){
+     const doc=win.document.getElementById('vv-desktop-document');
+     if(doc){
+       // A4 printable height at 96 CSS px/in with 10mm margins.
+       const available=1046;
+       const height=doc.scrollHeight;
+       const fit=Math.min(1,available/Math.max(1,height));
+       doc.style.setProperty('--vv-print-fit',String(Math.max(0.32,fit)));
+     }
+     win.focus();win.print();
+   }
  };
  win.addEventListener('load',()=>{trigger()},{once:true});
  if(win.document.readyState==='complete')trigger();
@@ -1317,7 +1337,7 @@ function vvInvoiceApply(){let chosen=vvInvoiceRows.filter(r=>r.include);if(!chos
  document.getElementById('movetype').value='in';document.getElementById('movenote').value=vvInvoiceFilename||'Імпорт накладної';vvInvoiceClose();renderStockSelected();vvAlert('Перенесено '+prepared.length+' позицій. Перевір таблицю та натисни «Зберегти операцію».');
 }
 
-// VV Electric UI release 77. Fetch the deployed page bypassing HTTP cache before reload.
+// VV Electric UI release 78. Fetch the deployed page bypassing HTTP cache before reload.
 async function vvAppUpdate(){
  const btn=document.getElementById('vv-app-update');
  if(!navigator.onLine){alert('Для оновлення потрібен інтернет.');return;}
@@ -1354,7 +1374,7 @@ async function vvAppUpdate(){
 
 
 <script>
-const VV_RELEASE=77;
+const VV_RELEASE=78;
 let vvLastOfferedRelease=0;
 async function vvCheckNewRelease(){
  if(document.hidden||!navigator.onLine)return;
