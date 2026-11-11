@@ -1368,7 +1368,7 @@ function vvInvoiceApply(){let chosen=vvInvoiceRows.filter(r=>r.include);if(!chos
  document.getElementById('movetype').value='in';document.getElementById('movenote').value=vvInvoiceFilename||'Імпорт накладної';vvInvoiceClose();renderStockSelected();vvAlert('Перенесено '+prepared.length+' позицій. Перевір таблицю та натисни «Зберегти операцію».');
 }
 
-// VV Electric UI release 80. Fetch the deployed page bypassing HTTP cache before reload.
+// VV Electric UI release 81. Fetch the deployed page bypassing HTTP cache before reload.
 async function vvAppUpdate(){
  const btn=document.getElementById('vv-app-update');
  if(!navigator.onLine){alert('Для оновлення потрібен інтернет.');return;}
@@ -1378,24 +1378,25 @@ async function vvAppUpdate(){
  btn.disabled=true;btn.textContent='Перевіряю…';
  try{
   const registration=('serviceWorker' in navigator)?await navigator.serviceWorker.getRegistration():null;
+  if(registration)await registration.update().catch(()=>{});
   const response=await fetch(new URL('./index.html?vv_check='+Date.now(),location.href),{cache:'no-store',redirect:'follow'});
   if(!response.ok)throw new Error('HTTP '+response.status);
   const html=await response.text();
   const match=html.match(/VV Electric UI release (\d+)/);
   const deployed=match?Number(match[1]):null;
   if(!deployed)throw new Error('Не вдалося визначити версію на сервері.');
-  if(deployed<=74){
-   btn.textContent='✓ Актуальна';
+  if(deployed<=VV_RELEASE){
+   btn.textContent='✓ Версія '+VV_RELEASE;
    setTimeout(()=>{btn.textContent='↻ Оновити';btn.disabled=false},2000);
    return;
   }
-  if(confirm('Доступна VV Electric '+deployed+'. Оновити зараз?')){
+  if(deployed>VV_RELEASE && confirm('Доступна VV Electric '+deployed+'. Оновити зараз?')){
    if(registration)await registration.update().catch(e=>console.warn('SW update',e));
    if('caches' in window){
     const keys=await caches.keys();
     await Promise.all(keys.filter(k=>k.startsWith('vv-electric-static-')).map(k=>caches.delete(k)));
    }
-   location.replace('./index.html?vv_reload='+Date.now());
+   location.replace(new URL('./index.html?vv_reload='+Date.now(),location.href).href);
    return;
   }
  }catch(e){alert('Не вдалося перевірити оновлення: '+e.message)}
@@ -1405,7 +1406,7 @@ async function vvAppUpdate(){
 
 
 <script>
-const VV_RELEASE=80;
+const VV_RELEASE=81;
 let vvLastOfferedRelease=0;
 async function vvCheckNewRelease(){
  if(document.hidden||!navigator.onLine)return;

@@ -1,5 +1,5 @@
-// VV Electric PWA v80. Network-first for app pages; no Supabase/API caching.
-const CACHE = 'vv-electric-static-v80';
+// VV Electric PWA v81. Network-first for app pages; no Supabase/API caching.
+const CACHE = 'vv-electric-static-v81';
 const SUPABASE_SCRIPT='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './vv-electric-icon-192.png', './vv-electric-icon-512.png'];
 self.addEventListener('install', event => {
