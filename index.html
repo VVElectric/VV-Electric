@@ -869,7 +869,7 @@ function vvRenderPresenceRoster(){
  btn.hidden=!isAdmin;
  if(!isAdmin){panel.hidden=true;return;}
  const members=vvMembers.filter(m=>m.role==='manager'&&m.active);
- const count=members.filter(m=>vvOnlineManagers.has(String(m.user_id))).length;
+ const count=members.filter(m=>vvOnlineManagers.has(String(m.user_id))||(m.last_seen_at&&Date.now()-new Date(m.last_seen_at).getTime()<110000)).length;
  const badge=document.getElementById('vv-roster-count');
  badge.textContent=String(count);
  badge.hidden=!count;
@@ -878,9 +878,31 @@ function vvRenderPresenceRoster(){
  const list=document.getElementById('vv-roster-list');
  list.innerHTML=!vvRosterLoaded?'<p>Завантаження…</p>':members.length?members.map(m=>{
   const online=vvOnlineManagers.has(String(m.user_id));
-  return `<div class="vv-roster-person"><span class="vv-roster-dot ${online?'is-online':''}"></span><span>${esc(m.username)}</span><span class="vv-roster-status">${vvPresenceUnknown?'Зв’язок втрачено':online?'Онлайн':'Не в мережі'}</span></div>`;
+  const last=m.last_seen_at?new Date(m.last_seen_at):null;
+  const valid=last&&!Number.isNaN(last.getTime());
+  const lastLabel=valid?last.toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'Ще немає даних';
+  const isRecentlyActive=valid&&(Date.now()-last.getTime()<110000);
+  const shownOnline=online||isRecentlyActive;
+  return `<div class="vv-roster-person"><span class="vv-roster-dot ${shownOnline?'is-online':''}"></span><span class="vv-roster-person-name">${esc(m.username)}<small class="vv-roster-last">Остання активність: ${lastLabel}</small></span><span class="vv-roster-status">${shownOnline?'Онлайн':vvPresenceUnknown?'Зв’язок втрачено':'Не в мережі'}</span></div>`;
  }).join(''):'<p>Менеджерів поки немає.</p>';
 }
+let vvHeartbeatTimer=null;
+async function vvSendHeartbeat(){
+ if(!vvUser||!vvRole||document.hidden||!navigator.onLine)return;
+ try{
+  const {data}=await vvClient.auth.getSession();
+  if(!data?.session?.access_token)return;
+  const res=await fetch(VV_URL+'/functions/v1/vv-team',{method:'POST',headers:{'Content-Type':'application/json',apikey:VV_KEY,Authorization:'Bearer '+data.session.access_token},body:JSON.stringify({action:'heartbeat'})});
+  if(!res.ok)console.warn('Heartbeat status:',res.status);
+ }catch(e){console.warn('Heartbeat:',e)}
+}
+function vvStartHeartbeat(){
+ if(vvHeartbeatTimer)clearInterval(vvHeartbeatTimer);
+ vvSendHeartbeat();
+ vvHeartbeatTimer=setInterval(vvSendHeartbeat,45000);
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)vvSendHeartbeat()});
+window.addEventListener('online',vvSendHeartbeat);
 let vvMemberRefreshTimer=null;
 function vvStartMemberRefresh(){
  if(vvMemberRefreshTimer)clearInterval(vvMemberRefreshTimer);
@@ -1163,14 +1185,14 @@ async function vvAuthSubmit(e){
  try{const data=await vvTeam('login',{username,password},false);const {error}=await vvClient.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token});if(error)throw error;vvEl('vv-password').value='';}
  catch(error){vvEl('vv-auth-msg').textContent=error.message;}
 }
-async function vvLogout(){if(vvOfflinePending||vvOfflineConflict||vvDirty||vvSaving){alert('Дочекайтеся завершення синхронізації');return;}vvStopPresence();vvRosterLoaded=false;vvMembers=[];vvRenderPresenceRoster();await vvClient.auth.signOut();vvUser=null;vvRole=null;vvReady=false;vvLock(true);}
+async function vvLogout(){if(vvOfflinePending||vvOfflineConflict||vvDirty||vvSaving){alert('Дочекайтеся завершення синхронізації');return;}vvStopPresence();if(vvHeartbeatTimer){clearInterval(vvHeartbeatTimer);vvHeartbeatTimer=null;}vvRosterLoaded=false;vvMembers=[];vvRenderPresenceRoster();await vvClient.auth.signOut();vvUser=null;vvRole=null;vvReady=false;vvLock(true);}
 async function vvLoad(){
  if(vvOfflinePending){if(await vvRestoreLocal())return;}
  try{
   const {data:member,error:memberError}=await vvClient.from('vv_team_members').select('role,active,username').eq('user_id',vvUser.id).maybeSingle();
   if(memberError)throw memberError;
   if(!member?.active)throw Error('Обліковий запис неактивний або не має доступу');
-  vvRole=member.role;vvStartPresence();
+  vvRole=member.role;vvStartPresence();vvStartHeartbeat();
   if(vvRole!=='admin'){
    const data=await vvWorkspace('read');vvPermissions=data.permissions||{};vvReady=false;
    vvManagerScreen(data.payload);vvLock(false);vvStatus('Режим менеджера · спільні КП');
@@ -1244,7 +1266,7 @@ async function vvPoll(){
 async function vvRefresh(){if(vvOfflinePending||vvOfflineConflict){vvAlert('Спочатку синхронізуйте локальні зміни або експортуйте резервну копію.');return;}if(vvRole==='manager')return vvManagerRefresh();if(vvSaving||vvDirty||vvBlocked){alert('Є незбережені зміни. Спочатку експортуйте резервну копію.');return;}await vvLoad()}
 async function cloudBoot(){
  vvLock(true);vvStatus('Підключення…');
- vvClient.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){vvStopPresence();vvUser=null;vvRole=null;vvReady=false;vvLock(true);return;}if(session?.user&&(!vvUser||vvUser.id!==session.user.id)){vvUser=session.user;vvLoad().catch(e=>{vvLock(true);vvEl('vv-auth-msg').textContent='Помилка бази: '+e.message;});}});
+ vvClient.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){vvStopPresence();if(vvHeartbeatTimer){clearInterval(vvHeartbeatTimer);vvHeartbeatTimer=null;}vvUser=null;vvRole=null;vvReady=false;vvLock(true);return;}if(session?.user&&(!vvUser||vvUser.id!==session.user.id)){vvUser=session.user;vvLoad().catch(e=>{vvLock(true);vvEl('vv-auth-msg').textContent='Помилка бази: '+e.message;});}});
  const {data,error}=await vvClient.auth.getSession();if(error){vvEl('vv-auth-msg').textContent=error.message;return;}
  if(data.session?.user){vvUser=data.session.user;await vvLoad().catch(e=>vvEl('vv-auth-msg').textContent=e.message)}
  setInterval(vvPoll,5000);
@@ -1280,7 +1302,7 @@ body.vv-locked #vv-app-update{display:none}
 #vv-roster-count{position:absolute;top:-7px;right:-7px;min-width:20px;height:20px;padding:0 4px;border-radius:999px;background:#36a765;color:white;font:700 12px/20px system-ui;text-align:center}
 #vv-roster-panel{position:fixed;right:12px;top:calc(65px + env(safe-area-inset-top,0px));width:min(350px,calc(100vw - 24px));max-height:min(65vh,500px);overflow:auto;z-index:9501;background:#222;border:1px solid #66532b;border-radius:16px;padding:16px;box-shadow:0 12px 35px #000b;color:#f5f5f5;font:14px system-ui}
 #vv-roster-panel h3{margin:0 0 6px;font-size:18px}#vv-roster-total{color:#d5c69f;font-size:13px;margin-bottom:12px}
-.vv-roster-person{display:flex;align-items:center;gap:9px;padding:12px 0;border-top:1px solid #454545}.vv-roster-dot{height:9px;width:9px;flex:none;border-radius:50%;background:#777}.vv-roster-dot.is-online{background:#36c776;box-shadow:0 0 6px #36c776}.vv-roster-status{margin-left:auto;color:#bdbdbd;font-size:12px}
+.vv-roster-person{display:flex;align-items:center;gap:9px;padding:12px 0;border-top:1px solid #454545}.vv-roster-dot{height:9px;width:9px;flex:none;border-radius:50%;background:#777}.vv-roster-dot.is-online{background:#36c776;box-shadow:0 0 6px #36c776}.vv-roster-status{margin-left:auto;color:#bdbdbd;font-size:12px;white-space:nowrap}.vv-roster-person-name{min-width:0;flex:1}.vv-roster-last{display:block;font-size:11px;color:#a9a9a9;margin-top:4px}
 body.vv-locked #vv-roster-button,body.vv-locked #vv-roster-panel{display:none!important}
 @media print{#vv-roster-button,#vv-roster-panel{display:none!important}}
 </style>
@@ -1346,7 +1368,7 @@ function vvInvoiceApply(){let chosen=vvInvoiceRows.filter(r=>r.include);if(!chos
  document.getElementById('movetype').value='in';document.getElementById('movenote').value=vvInvoiceFilename||'Імпорт накладної';vvInvoiceClose();renderStockSelected();vvAlert('Перенесено '+prepared.length+' позицій. Перевір таблицю та натисни «Зберегти операцію».');
 }
 
-// VV Electric UI release 79. Fetch the deployed page bypassing HTTP cache before reload.
+// VV Electric UI release 80. Fetch the deployed page bypassing HTTP cache before reload.
 async function vvAppUpdate(){
  const btn=document.getElementById('vv-app-update');
  if(!navigator.onLine){alert('Для оновлення потрібен інтернет.');return;}
@@ -1383,7 +1405,7 @@ async function vvAppUpdate(){
 
 
 <script>
-const VV_RELEASE=79;
+const VV_RELEASE=80;
 let vvLastOfferedRelease=0;
 async function vvCheckNewRelease(){
  if(document.hidden||!navigator.onLine)return;
