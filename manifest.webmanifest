@@ -1,0 +1,26 @@
+{
+  "id": "./",
+  "name": "VV Electric — КП та склад",
+  "short_name": "VV Electric",
+  "description": "Кабінет VV Electric: комерційні пропозиції, матеріали та склад",
+  "lang": "uk",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#151515",
+  "theme_color": "#151515",
+  "icons": [
+    {
+      "src": "./vv-electric-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./vv-electric-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
