@@ -1,5 +1,5 @@
-// VV Electric PWA v0.2.9 - never cache HTML or API responses.
-const CACHE='vv-electric-static-v0.2.9';
+// VV Electric PWA v0.3.0 - never cache HTML or API responses.
+const CACHE='vv-electric-static-v0.3.0';
 const ASSETS=['./manifest.webmanifest','./vv-electric-icon-192.png','./vv-electric-icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).catch(()=>{}).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('vv-electric-static-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
