@@ -1107,12 +1107,57 @@ return `<details data-deye-id="${esc(id)}" class="panel" style="margin:10px 0;pa
 <div style="display:grid;gap:9px">
 <label><input type="checkbox" ${settings.link?'checked':''} onchange="vvDeyeWatchOption('${id}','link',this.checked)"> Зміна зв’язку зі станцією</label>
 <label><input type="checkbox" ${settings.grid?'checked':''} onchange="vvDeyeWatchOption('${id}','grid',this.checked)"> Зникнення / поява міської мережі</label>
-<label><input type="checkbox" ${settings.error?'checked':''} onchange="vvDeyeWatchOption('${id}','error',this.checked)"> Помилки інвертора (поки не підключено до API тривог)</label>
-</div></details>`}).join('') :'<p class="note">Станцій для вибраного фільтра немає.</p>');
+<label><input type="checkbox" ${settings.error?'checked':''} onchange="vvDeyeWatchOption('${id}','error',this.checked)"> Помилки інвертора</label>
+<div style="margin-top:12px"><button type="button" onclick="vvDeyeShowAlerts('${id}')">⚠ Перевірити тривоги</button><div id="vv-deye-alarms-${id}" class="note" style="margin-top:8px"></div></div></div></details>`}).join('') :'<p class="note">Станцій для вибраного фільтра немає.</p>');
 const retainedId=openId[openId.length-1];
 root.querySelectorAll('details[data-deye-id]').forEach(el=>{el.open=el.dataset.deyeId===retainedId});
 if(Math.abs(window.scrollY-scrollY)>2)window.scrollTo(0,scrollY);
 }
+const vvDeyeAlarmCache=new Map();
+const vvDeyeAlarmSeen=new Map();
+async function vvDeyeFetchAlerts(id,notify=false){
+ const {data:{session}}=await vvClient.auth.getSession();
+ if(!session)throw Error('Потрібен вхід');
+ const response=await fetch(VV_URL+'/functions/v1/deye-monitor',{method:'POST',headers:{'Content-Type':'application/json',apikey:VV_KEY,Authorization:'Bearer '+session.access_token},body:JSON.stringify({action:'alerts',companyId:vvDeyeCompanyId,stationId:Number(id)}),cache:'no-store'});
+ const result=await response.json();
+ if(!response.ok||!result.ok)throw Error(result.error||'Не вдалося отримати тривоги');
+ const list=Array.isArray(result.alerts)?result.alerts:[];
+ const current=list.filter(a=>Number(a.status)===1);
+ const signature=new Set(current.map(a=>a.id||a.code+':'+a.start));
+ if(notify&&vvDeyeAlarmSeen.has(id)){
+  const previous=vvDeyeAlarmSeen.get(id);
+  for(const a of current)if(!previous.has(a.id||a.code+':'+a.start)){
+   vvDeyeAlertQueue.push('DEYE · '+(vvDeyeData.find(x=>String(x.id)===String(id))?.name||id)+': '+(a.name||a.code||'Тривога інвертора'));
+  }
+ }
+ vvDeyeAlarmSeen.set(id,signature);vvDeyeAlarmCache.set(id,{list,checkedAt:result.checkedAt});
+ return list;
+}
+async function vvDeyeShowAlerts(id){
+ const el=document.getElementById('vv-deye-alarms-'+id);if(!el)return;
+ el.textContent='Перевіряю тривоги…';
+ try{
+  const list=await vvDeyeFetchAlerts(id);
+  if(!list.length){el.textContent='За останні 24 години тривог немає';return}
+  el.replaceChildren();
+  for(const a of list){
+   const item=document.createElement('div');item.style.cssText='padding:9px 0;border-bottom:1px solid #444';
+   const code=a.code?' · '+a.code:'';
+   item.textContent=(Number(a.status)===1?'🔴 Активна':'⚪ Завершена')+code+' · '+(a.name||'Тривога Deye');
+   el.append(item);
+  }
+ }catch(e){el.textContent='Не вдалося отримати тривоги: '+e.message}
+}
+async function vvDeyePollWatchedAlarms(){
+ if(tab!=='deye'||vvRole!=='admin'||document.hidden||!navigator.onLine||!vvDeyeCompanyId)return;
+ const watches=vvDeyeWatches();
+ const ids=Object.keys(watches).filter(id=>watches[id]?.error);
+ for(const id of ids){
+  try{await vvDeyeFetchAlerts(id,true)}catch(e){console.warn('Deye alerts',id,e)}
+ }
+ if(vvDeyeAlertQueue.length)vvDeyeRender();
+}
+setInterval(vvDeyePollWatchedAlarms,5*60*1000);
 function vvDeyeWatchOption(id,key,checked){const w=vvDeyeWatches();const x=w[id]===true?{link:true}:(w[id]||{});x[key]=checked;w[id]=x;localStorage.setItem(vvDeyeWatchKey,JSON.stringify(w));vvPushSync()}
 
 function vvDeyeChoose(id){vvDeyeCompanyId=String(id||'');try{localStorage.setItem('vv-deye-company-id',vvDeyeCompanyId)}catch{}vvDeyeData=[];vvDeyeLoaded=false;vvDeyeChecked='';vvDeyeError='';vvDeyeRender();if(vvDeyeCompanyId)vvDeyeLoad(true)}
