@@ -1583,7 +1583,7 @@ function vvInvoiceApply(){let chosen=vvInvoiceRows.filter(r=>r.include);if(!chos
 }
 
 // VV Electric build fingerprint; generated from published HTML during release.
-const VV_BUILD='VVHASH_3ac9a9fe';
+const VV_BUILD='VVHASH_2d11efc9';
 const VV_VERSION='v0.3.12';
 let vvUpdateChecking=false, vvUpdateDismissed='';
 function vvHashHTML(html){
@@ -1738,7 +1738,7 @@ function vvInboxDetails(id){
  const close=document.createElement('button');close.type='button';close.textContent='✕ Закрити';close.addEventListener('click',()=>detail.remove());
  const del=document.createElement('button');del.type='button';del.textContent='🗑 Видалити';del.addEventListener('click',async()=>{detail.remove();await vvInboxAction('delete-one',id)});
  actions.append(close,del);detail.append(title,body,date,actions);list.prepend(detail);list.scrollTop=0;
- if(!x.read){x.read=true;vvInboxAction('read-one',id).catch(console.warn)}
+ if(!x.read){x.read=true;const badge=document.getElementById('vv-bell-count');const n=vvInboxItems.filter(item=>!item.read).length;if(badge){badge.hidden=!n;badge.textContent=n>99?'99+':String(n)}vvInboxCall('read-one',id).catch(console.warn)}
 }
 function vvInboxOpen(){const account=document.getElementById('vv-account-popover');if(account)account.hidden=true;const inbox=document.getElementById('vv-inbox-overlay');inbox.style.removeProperty('display');inbox.hidden=false;vvInboxRefresh()}
 function vvInboxClose(){const detail=document.getElementById('vv-inbox-detail');if(detail)detail.remove();const inbox=document.getElementById('vv-inbox-overlay');if(inbox){inbox.hidden=true;inbox.style.display='none'}}
