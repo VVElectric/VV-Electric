@@ -1597,7 +1597,7 @@ async function vvCheckNewRelease(){
   banner.append(label,action,dismiss);document.getElementById('vv-update-banner')?.remove();document.body.append(banner);
  }catch(e){console.debug('Version probe unavailable',e)}
 }
-setInterval(vvCheckNewRelease,5*60*1000);
+setInterval(vvCheckNewRelease,60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)vvCheckNewRelease()});
 setTimeout(vvCheckNewRelease,7000);
 </script>
