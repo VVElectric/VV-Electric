@@ -1,3 +1,5 @@
+self.addEventListener('install',event=>{event.waitUntil(self.skipWaiting())});
+self.addEventListener('activate',event=>{event.waitUntil(self.clients.claim())});
 
 const DB='vv-inbox-v1';
 function db(){return new Promise((ok,fail)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore('messages',{keyPath:'id'});r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error)})}
