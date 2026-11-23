@@ -1003,7 +1003,7 @@ async function vvSaveManager(i){
 // DEYE admin-only monitor. All Deye credentials remain in Supabase Edge Function Secrets.
 let vvDeyeOrganizations=[],vvDeyeCompanyId='',vvDeyeData=[],vvDeyeLoaded=false,vvDeyeError='',vvDeyeBusy=false,vvDeyeChecked='',vvDeyeFilter='all',vvDeyeQuery='';
 function vvDeyeStatus(s){const x=String(s.connectionStatus??s.status??'').trim().toUpperCase();if(['NORMAL','ONLINE','CONNECTED','TRUE','1'].includes(x))return 'online';if(['OFFLINE','DISCONNECTED','FALSE','0','ABNORMAL'].includes(x))return 'offline';if(['NO_DEVICE'].includes(x))return 'no_device';return 'unknown'}
-function vvDeyePage(){if(vvRole!=='admin')return '<div class="panel">Доступ лише адміністратору</div>';return `<div class="panel"><h2>⚡ Моніторинг DEYE</h2><p class="note">Станції VV Electric: закріплені зверху, решта за алфавітом. Перевірка оновлень кожні 5 секунд без перезавантаження сторінки. Це не безперервний потік: фактична частота даних залежить від Deye Cloud. Дані потужності надходять з Deye Cloud /station/latest.</p><div class="actions"><button class="primary" onclick="vvDeyeLoad(true)">↻ Оновити станції</button><button onclick="vvDeyeEnableNotifications()">🔔 Дозволити сповіщення</button><span id="vv-deye-time" class="note">${vvDeyeChecked?esc('Перевірено: '+new Date(vvDeyeChecked).toLocaleString('uk-UA')):'Ще не перевірено'}</span></div><p id="vv-deye-error" style="color:#ff9999">${esc(vvDeyeError)}</p><div id="vv-deye-filters" class="actions"></div><div class="field"><label>Пошук за назвою, адресою, ID</label><input id="vv-deye-query" placeholder="Знайти станцію" value="${esc(vvDeyeQuery)}" oninput="vvDeyeQuery=this.value;vvDeyeRender()"></div><p class="note">Налаштування повідомлень для кожної станції. Сповіщення під час відкритого застосунку працюють локально. Для фонових push натисніть «Дозволити сповіщення» один раз. Перевірка Deye виконується приблизно кожні 5 хвилин.</p><div id="vv-deye-list"></div></div>`}
+function vvDeyePage(){if(vvRole!=='admin')return '<div class="panel">Доступ лише адміністратору</div>';return `<div class="panel"><h2>⚡ Моніторинг DEYE</h2><p class="note">Станції VV Electric: закріплені зверху, решта за алфавітом. Перевірка оновлень кожні 5 секунд без перезавантаження сторінки. Це не безперервний потік: фактична частота даних залежить від Deye Cloud. Дані потужності надходять з Deye Cloud /station/latest.</p><div class="actions"><button class="primary" onclick="vvDeyeLoad(true)">↻ Оновити станції</button><button onclick="vvDeyeEnableNotifications()">🔔 Дозволити сповіщення</button><button onclick="vvDeyeTestPush()">📨 Надіслати тестове повідомлення</button><span id="vv-push-test-status" class="note" aria-live="polite"></span><span id="vv-deye-time" class="note">${vvDeyeChecked?esc('Перевірено: '+new Date(vvDeyeChecked).toLocaleString('uk-UA')):'Ще не перевірено'}</span></div><p id="vv-deye-error" style="color:#ff9999">${esc(vvDeyeError)}</p><div id="vv-deye-filters" class="actions"></div><div class="field"><label>Пошук за назвою, адресою, ID</label><input id="vv-deye-query" placeholder="Знайти станцію" value="${esc(vvDeyeQuery)}" oninput="vvDeyeQuery=this.value;vvDeyeRender()"></div><p class="note">Налаштування повідомлень для кожної станції. Сповіщення під час відкритого застосунку працюють локально. Для фонових push натисніть «Дозволити сповіщення» один раз. Перевірка Deye виконується приблизно кожні 5 хвилин.</p><div id="vv-deye-list"></div></div>`}
 const vvDeyePinKey='vv-deye-pins-v1';
 function vvDeyePins(){try{const p=JSON.parse(localStorage.getItem(vvDeyePinKey)||'{}');return p&&typeof p==='object'?p:{}}catch{return {}}}
 function vvDeyePin(id){const pins=vvDeyePins();if(pins[id])delete pins[id];else pins[id]=true;try{localStorage.setItem(vvDeyePinKey,JSON.stringify(pins))}catch{}vvDeyeRender()}
@@ -1028,6 +1028,21 @@ async function vvPushRequest(action,data){
 }
 async function vvPushSync(){
  try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await vvPushRequest('subscribe',{subscription:sub.toJSON(),preferences:vvDeyeWatches()})}catch(e){console.warn('Push sync:',e)}
+}
+async function vvDeyeTestPush(){
+ const el=document.getElementById('vv-push-test-status');
+ if(el)el.textContent='Надсилаємо тест...';
+ try{
+  if(!('serviceWorker' in navigator)||!('PushManager' in window))throw Error('Push не підтримується на цьому пристрої');
+  const reg=await navigator.serviceWorker.ready;
+  const sub=await reg.pushManager.getSubscription();
+  if(!sub)throw Error('Спочатку натисніть «Дозволити сповіщення»');
+  await vvPushRequest('subscribe',{subscription:sub.toJSON(),preferences:vvDeyeWatches()});
+  const result=await vvPushRequest('test',{});
+  const message='Сервер прийняв відправку ('+(result.sent||0)+'). Перевірте сповіщення iPhone, зокрема після закриття застосунку.';
+  if(el)el.textContent=message;
+  vvToast(message);
+ }catch(e){const message='Тест не пройшов: '+(e.message||e);if(el)el.textContent=message;vvToast(message)}
 }
 async function vvDeyeEnableNotifications(){
  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){vvToast('Push не підтримуються. На iPhone відкрийте VV Electric з іконки на головному екрані.');return}
