@@ -1,6 +1,16 @@
-// VV Electric PWA v0.3.0 - never cache HTML or API responses.
-const CACHE='vv-electric-static-v0.3.0';
-const ASSETS=['./manifest.webmanifest','./vv-electric-icon-192.png','./vv-electric-icon-512.png'];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).catch(()=>{}).then(()=>self.skipWaiting()))});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('vv-electric-static-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
-self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);if(u.origin!==self.location.origin)return;if(r.mode==='navigate'||u.pathname.endsWith('/index.html')){e.respondWith(fetch(new Request(r,{cache:'no-store'})).catch(()=>new Response('<!doctype html><html lang="uk"><meta name="viewport" content="width=device-width"><body style="background:#151515;color:white;font:18px system-ui;padding:25px"><h2>VV Electric</h2><p>Немає з’єднання із сайтом. Підключіться до інтернету та оновіть сторінку.</p></body></html>',{headers:{'Content-Type':'text/html;charset=utf-8'}})));return;}e.respondWith(fetch(r).catch(()=>caches.match(r)))});
+// VV Electric service worker — push reception (server sender required).
+self.addEventListener('push',event=>{
+  let data={};
+  try { data=event.data?.json()||{}; } catch { data={body:event.data?.text()||''}; }
+  const title=String(data.title||'VV Electric · DEYE');
+  const options={body:String(data.body||'Оновлення станції'),icon:'./vv-electric-icon-192.png',badge:'./vv-electric-icon-192.png',tag:String(data.tag||'vv-deye-event'),renotify:true,data:{url:new URL('./index.html',self.registration.scope).href}};
+  event.waitUntil(self.registration.showNotification(title,options));
+});
+self.addEventListener('notificationclick',event=>{
+  event.notification.close();
+  const url=event.notification.data?.url||self.registration.scope;
+  event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async windows=>{
+    for(const client of windows){if(client.url.startsWith(self.registration.scope)){await client.focus();return;}}
+    return clients.openWindow(url);
+  }));
+});

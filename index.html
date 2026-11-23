@@ -1003,13 +1003,13 @@ async function vvSaveManager(i){
 // DEYE admin-only monitor. All Deye credentials remain in Supabase Edge Function Secrets.
 let vvDeyeOrganizations=[],vvDeyeCompanyId='',vvDeyeData=[],vvDeyeLoaded=false,vvDeyeError='',vvDeyeBusy=false,vvDeyeChecked='',vvDeyeFilter='all',vvDeyeQuery='';
 function vvDeyeStatus(s){const x=String(s.connectionStatus??s.status??'').trim().toUpperCase();if(['NORMAL','ONLINE','CONNECTED','TRUE','1'].includes(x))return 'online';if(['OFFLINE','DISCONNECTED','FALSE','0','ABNORMAL'].includes(x))return 'offline';if(['NO_DEVICE'].includes(x))return 'no_device';return 'unknown'}
-function vvDeyePage(){if(vvRole!=='admin')return '<div class="panel">Доступ лише адміністратору</div>';return `<div class="panel"><h2>⚡ Моніторинг DEYE</h2><p class="note">Станції VV Electric: закріплені зверху, решта за алфавітом. Перевірка оновлень кожні 5 секунд без перезавантаження сторінки. Це не безперервний потік: фактична частота даних залежить від Deye Cloud. Дані потужності надходять з Deye Cloud /station/latest.</p><div class="actions"><button class="primary" onclick="vvDeyeLoad(true)">↻ Оновити станції</button><button onclick="vvDeyeEnableNotifications()">🔔 Дозволити сповіщення</button><span id="vv-deye-time" class="note">${vvDeyeChecked?esc('Перевірено: '+new Date(vvDeyeChecked).toLocaleString('uk-UA')):'Ще не перевірено'}</span></div><p id="vv-deye-error" style="color:#ff9999">${esc(vvDeyeError)}</p><div id="vv-deye-filters" class="actions"></div><div class="field"><label>Пошук за назвою, адресою, ID</label><input id="vv-deye-query" placeholder="Знайти станцію" value="${esc(vvDeyeQuery)}" oninput="vvDeyeQuery=this.value;vvDeyeRender()"></div><p class="note">Налаштування повідомлень для кожної станції. Сповіщення про зміну зв’язку працюють під час відкритого застосунку. Для повідомлень про міську мережу та помилки потрібні підтверджені показники інвертора; поки вони не активні.</p><div id="vv-deye-list"></div></div>`}
+function vvDeyePage(){if(vvRole!=='admin')return '<div class="panel">Доступ лише адміністратору</div>';return `<div class="panel"><h2>⚡ Моніторинг DEYE</h2><p class="note">Станції VV Electric: закріплені зверху, решта за алфавітом. Перевірка оновлень кожні 5 секунд без перезавантаження сторінки. Це не безперервний потік: фактична частота даних залежить від Deye Cloud. Дані потужності надходять з Deye Cloud /station/latest.</p><div class="actions"><button class="primary" onclick="vvDeyeLoad(true)">↻ Оновити станції</button><button onclick="vvDeyeEnableNotifications()">🔔 Дозволити сповіщення</button><span id="vv-deye-time" class="note">${vvDeyeChecked?esc('Перевірено: '+new Date(vvDeyeChecked).toLocaleString('uk-UA')):'Ще не перевірено'}</span></div><p id="vv-deye-error" style="color:#ff9999">${esc(vvDeyeError)}</p><div id="vv-deye-filters" class="actions"></div><div class="field"><label>Пошук за назвою, адресою, ID</label><input id="vv-deye-query" placeholder="Знайти станцію" value="${esc(vvDeyeQuery)}" oninput="vvDeyeQuery=this.value;vvDeyeRender()"></div><p class="note">Налаштування повідомлень для кожної станції. Сповіщення під час відкритого застосунку працюють локально. Для фонових push натисніть «Дозволити сповіщення» один раз. Перевірка Deye виконується приблизно кожні 5 хвилин.</p><div id="vv-deye-list"></div></div>`}
 const vvDeyePinKey='vv-deye-pins-v1';
 function vvDeyePins(){try{const p=JSON.parse(localStorage.getItem(vvDeyePinKey)||'{}');return p&&typeof p==='object'?p:{}}catch{return {}}}
 function vvDeyePin(id){const pins=vvDeyePins();if(pins[id])delete pins[id];else pins[id]=true;try{localStorage.setItem(vvDeyePinKey,JSON.stringify(pins))}catch{}vvDeyeRender()}
 const vvDeyeWatchKey='vv-deye-watch-v1';
 function vvDeyeWatches(){try{return JSON.parse(localStorage.getItem(vvDeyeWatchKey)||'{}')||{}}catch{return {}}}
-function vvDeyeWatch(id,checked){const w=vvDeyeWatches();if(checked)w[id]=true;else delete w[id];localStorage.setItem(vvDeyeWatchKey,JSON.stringify(w))}
+function vvDeyeWatch(id,checked){const w=vvDeyeWatches();if(checked)w[id]=true;else delete w[id];localStorage.setItem(vvDeyeWatchKey,JSON.stringify(w));vvPushSync()}
 function vvDeyeTimestamp(raw){
  if(raw===undefined||raw===null||raw==='')return 'не надано Deye Cloud';
  let d;
@@ -1018,7 +1018,29 @@ function vvDeyeTimestamp(raw){
  return Number.isNaN(d.getTime())?String(raw):d.toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 function vvDeyeMetric(x,keys,unit=''){for(const k of keys){const v=x[k];if(v!==undefined&&v!==null&&v!==''&&Number.isFinite(Number(v)))return Number(v).toLocaleString('uk-UA',{maximumFractionDigits:1})+unit}return '—'}
-async function vvDeyeEnableNotifications(){if(!('Notification' in window)){vvToast('Системні сповіщення не підтримуються цим браузером. Події відображатимуться в DEYE.');return}try{const permission=await Notification.requestPermission();vvToast(permission==='granted'?'Сповіщення дозволено':'Сповіщення не дозволено')}catch(e){vvToast('Не вдалося отримати дозвіл')}}
+const VV_PUSH_PUBLIC_KEY='BCTJj9YlUQNNi5MhKW75fvkTkIPsf3BHp_fXtUnVBNo2QHJSfsHQYrfI4GWIl9QF-M1blAmR10g89p8g0GfJYCg';
+function vvPushKey(s){const pad='='.repeat((4-s.length%4)%4);const bytes=atob((s+pad).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(bytes,c=>c.charCodeAt(0))}
+async function vvPushRequest(action,data){
+ const {data:{session}}=await vvClient.auth.getSession();
+ if(!session)throw Error('Спочатку увійдіть в акаунт');
+ const r=await fetch(VV_URL+'/functions/v1/vv-push',{method:'POST',headers:{'Content-Type':'application/json','apikey':VV_KEY,'Authorization':'Bearer '+session.access_token},body:JSON.stringify({action,...data})});
+ const x=await r.json();if(!r.ok||!x.ok)throw Error(x.error||'Помилка push');return x;
+}
+async function vvPushSync(){
+ try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await vvPushRequest('subscribe',{subscription:sub.toJSON(),preferences:vvDeyeWatches()})}catch(e){console.warn('Push sync:',e)}
+}
+async function vvDeyeEnableNotifications(){
+ if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){vvToast('Push не підтримуються. На iPhone відкрийте VV Electric з іконки на головному екрані.');return}
+ try{
+  const permission=await Notification.requestPermission();
+  if(permission!=='granted'){vvToast('Потрібно дозволити сповіщення в налаштуваннях iPhone');return}
+  const reg=await navigator.serviceWorker.ready;
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vvPushKey(VV_PUSH_PUBLIC_KEY)});
+  await vvPushRequest('subscribe',{subscription:sub.toJSON(),preferences:vvDeyeWatches()});
+  vvToast('Фонові push-сповіщення підключено');
+ }catch(e){vvToast('Не вдалося підключити push: '+(e.message||e))}
+}
 function vvDeyeNotifyChanges(oldStations,newStations){if(!oldStations.length)return;const old=new Map(oldStations.map(x=>[String(x.id),vvDeyeStatus(x)])),watch=vvDeyeWatches();for(const x of newStations){const id=String(x.id),before=old.get(id),now=vvDeyeStatus(x);if((watch[id]===true||watch[id]?.link)&&before&&before!==now&&['online','offline'].includes(now)){const message=`${x.name||id}: ${now==='online'?'зв’язок відновлено':'зв’язок втрачено'}`;if('Notification' in window&&Notification.permission==='granted'){try{new Notification('DEYE · '+message)}catch{}}else{vvDeyeAlertQueue.push(message)}}}}
 let vvDeyeAlertQueue=[];
 function vvDeyeRender(){
@@ -1052,14 +1074,14 @@ return `<details data-deye-id="${esc(id)}" class="panel" style="margin:10px 0;pa
 <p class="note">Наявність міської мережі: ${gridLabel(x)}. «—» означає, що показник не надійшов; це не свідчить про відключення світла.</p>
 <div style="display:grid;gap:9px">
 <label><input type="checkbox" ${settings.link?'checked':''} onchange="vvDeyeWatchOption('${id}','link',this.checked)"> Зміна зв’язку зі станцією</label>
-<label><input type="checkbox" ${settings.grid?'checked':''} onchange="vvDeyeWatchOption('${id}','grid',this.checked)"> Зникнення / поява міської мережі (очікує даних інвертора)</label>
-<label><input type="checkbox" ${settings.error?'checked':''} onchange="vvDeyeWatchOption('${id}','error',this.checked)"> Помилки інвертора (очікує API тривог)</label>
+<label><input type="checkbox" ${settings.grid?'checked':''} onchange="vvDeyeWatchOption('${id}','grid',this.checked)"> Зникнення / поява міської мережі</label>
+<label><input type="checkbox" ${settings.error?'checked':''} onchange="vvDeyeWatchOption('${id}','error',this.checked)"> Помилки інвертора (поки не підключено до API тривог)</label>
 </div></details>`}).join('') :'<p class="note">Станцій для вибраного фільтра немає.</p>');
 const retainedId=openId[openId.length-1];
 root.querySelectorAll('details[data-deye-id]').forEach(el=>{el.open=el.dataset.deyeId===retainedId});
 if(Math.abs(window.scrollY-scrollY)>2)window.scrollTo(0,scrollY);
 }
-function vvDeyeWatchOption(id,key,checked){const w=vvDeyeWatches();const x=w[id]===true?{link:true}:(w[id]||{});x[key]=checked;w[id]=x;localStorage.setItem(vvDeyeWatchKey,JSON.stringify(w))}
+function vvDeyeWatchOption(id,key,checked){const w=vvDeyeWatches();const x=w[id]===true?{link:true}:(w[id]||{});x[key]=checked;w[id]=x;localStorage.setItem(vvDeyeWatchKey,JSON.stringify(w));vvPushSync()}
 
 function vvDeyeChoose(id){vvDeyeCompanyId=String(id||'');try{localStorage.setItem('vv-deye-company-id',vvDeyeCompanyId)}catch{}vvDeyeData=[];vvDeyeLoaded=false;vvDeyeChecked='';vvDeyeError='';vvDeyeRender();if(vvDeyeCompanyId)vvDeyeLoad(true)}
 function vvDeyeOrgRender(){const el=document.getElementById('vv-deye-org');if(!el)return;el.innerHTML='<option value="">— Обери організацію —</option>'+vvDeyeOrganizations.map(x=>`<option value="${esc(x.companyId)}">${esc(x.companyName)}${x.roleName?' · '+esc(x.roleName):''}</option>`).join('');el.value=vvDeyeCompanyId}
@@ -1483,7 +1505,7 @@ function vvInvoiceApply(){let chosen=vvInvoiceRows.filter(r=>r.include);if(!chos
  document.getElementById('movetype').value='in';document.getElementById('movenote').value=vvInvoiceFilename||'Імпорт накладної';vvInvoiceClose();renderStockSelected();vvAlert('Перенесено '+prepared.length+' позицій. Перевір таблицю та натисни «Зберегти операцію».');
 }
 
-// VV Electric UI release 98. Fetch the deployed page bypassing HTTP cache before reload.
+// VV Electric UI release 99. Fetch the deployed page bypassing HTTP cache before reload.
 async function vvAppUpdate(){
  const btn=document.getElementById('vv-app-update');
  if(!navigator.onLine){alert('Для оновлення потрібен інтернет.');return;}
@@ -1521,7 +1543,7 @@ async function vvAppUpdate(){
 
 
 <script>
-const VV_RELEASE=97;
+const VV_RELEASE=99;
 let vvLastOfferedRelease=0;
 async function vvCheckNewRelease(){
  if(document.hidden||!navigator.onLine)return;
