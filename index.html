@@ -1057,7 +1057,7 @@ async function vvDeyeTestPush(){
   if(!sub)throw Error('Спочатку натисніть «Дозволити сповіщення»');
   await vvPushRequest('subscribe',{subscription:sub.toJSON(),preferences:vvDeyeWatches()});
   const result=await vvPushRequest('test',{});
-  const message='Сервер прийняв відправку ('+(result.sent||0)+'). Перевірте сповіщення iPhone, зокрема після закриття застосунку.';
+  if(!(Number(result.sent)>0))throw Error('Сервер не підтвердив відправку жодного сповіщення');const message='Сервер прийняв відправку ('+result.sent+'). Перевірте сповіщення iPhone, зокрема після закриття застосунку.';
   if(el)el.textContent=message;
   vvToast(message);
  }catch(e){const message='Тест не пройшов: '+(e.message||e);if(el)el.textContent=message;vvToast(message)}
