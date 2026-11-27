@@ -1113,7 +1113,7 @@ return `<details data-deye-id="${esc(id)}" class="panel" style="margin:10px 0;pa
 <div>🏠 Будинок<br><b>${metric(x,['loadPower'],' W')}</b></div><div style="grid-column:1/-1">⚡ Напруга входу GRID<br><b>${['L1','L2','L3','L1L2','L2L3','L3L1'].filter(k=>x.gridVoltages?.[k]!=null&&Number.isFinite(Number(x.gridVoltages[k]))).map(k=>k.replace(/^(L[123])(L[123])$/,'$1–$2')+': '+Number(x.gridVoltages[k]).toLocaleString('uk-UA',{maximumFractionDigits:1})+' В').join(' · ')||'Немає даних від Deye'}</b>${x.gridVoltageAt?'<div class="note">Оновлено: '+esc(vvDeyeTimestamp(x.gridVoltageAt))+'</div>':''}</div>
 <div>⚡ Мережа<br><b>${metric(x,['gridPower'],' W')}</b><div class="note">${gridLabel(x)}</div></div>
 </div>
-<p class="note">Наявність міської мережі: ${gridLabel(x)}. «—» означає, що показник не надійшов; це не свідчить про відключення світла.</p>
+
 <div style="display:grid;gap:9px">
 <label><input type="checkbox" ${settings.link?'checked':''} onchange="vvDeyeWatchOption('${id}','link',this.checked)"> Зміна зв’язку зі станцією</label>
 <label><input type="checkbox" ${settings.grid?'checked':''} onchange="vvDeyeWatchOption('${id}','grid',this.checked)"> Зникнення / поява міської мережі</label>
